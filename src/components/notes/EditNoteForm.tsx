@@ -216,9 +216,9 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor="title" className="text-foreground/80">Title</FormLabel>
+              <FormLabel htmlFor="title-edit" className="text-foreground/80">Title</FormLabel>
               <FormControl>
-                <Input id="title" placeholder="Enter note title" {...field} className="text-base py-3 px-4 focus:ring-primary focus:border-primary" aria-required="true" />
+                <Input id="title-edit" placeholder="Enter note title" {...field} className="text-base py-3 px-4 focus:ring-primary focus:border-primary" aria-required="true" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -229,10 +229,10 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
           name="content"
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor="content" className="text-foreground/80">Content</FormLabel>
+              <FormLabel htmlFor="content-edit" className="text-foreground/80">Content</FormLabel>
               <FormControl>
                 <Textarea
-                  id="content"
+                  id="content-edit"
                   placeholder="Write your note here..."
                   {...field}
                   rows={8}
@@ -276,13 +276,13 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
                       className="hidden"
                       onChange={handleFileChange}
                       accept={ALLOWED_FILE_TYPES.join(",")}
-                      aria-describedby="attachment-description"
+                      aria-describedby="attachment-description-edit"
                       disabled={isUploading}
                     />
                   </label>
                 </div>
               </FormControl>
-              <p id="attachment-description" className="sr-only">
+              <p id="attachment-description-edit" className="sr-only">
                 Upload an optional attachment. Allowed types: JPG, PNG, GIF, TXT, PDF. Maximum size: 5MB.
               </p>
               <FormMessage />
@@ -307,7 +307,7 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
             {preview && fileType?.startsWith("image/") && (
               <Image 
                 src={preview} // Can be data URL or server URL
-                alt="Attachment preview" 
+                alt={fileName ? `Preview of ${fileName}` : "Attachment preview"}
                 width={100} 
                 height={100} 
                 className="rounded-md object-cover max-h-32" 
@@ -321,7 +321,7 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
               />
             )}
             {preview && fileType === "text/plain" && (
-              <div className="mt-2 p-2 border rounded bg-background max-h-32 overflow-y-auto text-xs">
+              <div className="mt-2 p-2 border rounded bg-background max-h-32 overflow-y-auto text-xs" aria-label={`Text file preview of ${fileName}`}>
                 <pre>{preview.substring(0, 200)}{preview.length > 200 ? '...' : ''}</pre>
               </div>
             )}

@@ -40,7 +40,7 @@ export default function LoginForm() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
         <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
-          <UserIcon className="h-10 w-10 text-primary" />
+          <UserIcon className="h-10 w-10 text-primary" aria-hidden="true" />
         </div>
         <CardTitle className="text-3xl font-bold text-primary">Welcome to SecureNote</CardTitle>
         <CardDescription className="text-muted-foreground">
@@ -62,6 +62,7 @@ export default function LoginForm() {
                       {...field} 
                       className="text-base py-3 px-4 focus:ring-primary focus:border-primary"
                       aria-label="Username"
+                      aria-required="true"
                     />
                   </FormControl>
                   <FormMessage />

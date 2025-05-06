@@ -84,7 +84,7 @@ export default function NoteDetailsPage() {
         <p className="text-muted-foreground">The note you are looking for does not exist or has been deleted.</p>
         <Button asChild variant="outline" className="mt-4 text-primary border-primary hover:bg-primary/10">
           <Link href="/notes">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Notes
+            <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back to Notes
           </Link>
         </Button>
       </div>
@@ -123,18 +123,18 @@ export default function NoteDetailsPage() {
                 {note.attachment.url && note.attachment.type.startsWith('image/') && (
                   <Image
                     src={note.attachment.url} // This is now /uploads/filename.ext
-                    alt={note.attachment.name || "Attachment image"}
+                    alt={note.attachment.name ? `Preview of ${note.attachment.name}` : "Attachment image"}
                     width={300}
                     height={200}
                     className="rounded-md object-contain max-h-64 w-auto shadow-md"
                     data-ai-hint="attachment preview"
-                    unoptimized={note.attachment.url.startsWith('/uploads/')} // Useful if Next.js image optimization struggles with local files or for simplicity
+                    unoptimized={note.attachment.url.startsWith('/uploads/')} 
                   />
                 )}
 
                 {/* Text Preview: Uses stored content if available */}
                 {note.attachment.content && note.attachment.type === 'text/plain' && (
-                  <div className="mt-2 p-3 border rounded bg-background max-h-64 overflow-y-auto text-sm">
+                  <div className="mt-2 p-3 border rounded bg-background max-h-64 overflow-y-auto text-sm" aria-label={`Text content of ${note.attachment.name}`}>
                     <pre>{note.attachment.content}</pre>
                   </div>
                 )}
@@ -179,13 +179,13 @@ export default function NoteDetailsPage() {
                 {note.attachment.url && (
                   <Button variant="outline" size="sm" asChild className="mt-3 text-primary border-primary hover:bg-primary/10">
                     <a href={note.attachment.url} download={note.attachment.name}>
-                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download {note.attachment.name}
                     </a>
                   </Button>
                 )}
                 {!note.attachment.url && note.attachment.content && note.attachment.type === 'text/plain' && (
                    <Button variant="outline" size="sm" onClick={() => {
-                     if (!document) return; 
+                     if (typeof document === 'undefined') return; 
                      const blob = new Blob([note.attachment!.content!], { type: 'text/plain' });
                      const url = URL.createObjectURL(blob);
                      const a = document.createElement('a');
@@ -196,7 +196,7 @@ export default function NoteDetailsPage() {
                      document.body.removeChild(a);
                      URL.revokeObjectURL(url);
                    }} className="mt-3 text-primary border-primary hover:bg-primary/10">
-                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download Text
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download {note.attachment.name}
                    </Button>
                 )}
               </div>

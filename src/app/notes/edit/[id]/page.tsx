@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -49,7 +50,7 @@ export default function EditNotePage() {
   if (isLoadingPage || notesLoading) {
     return (
       <div className="flex flex-col items-center justify-center text-muted-foreground py-10 min-h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" aria-label="Loading note for editing" />
         <p className="text-lg">Loading note for editing...</p>
       </div>
     );
@@ -63,7 +64,7 @@ export default function EditNotePage() {
         <p className="text-muted-foreground">The note you are trying to edit does not exist.</p>
         <Button asChild variant="outline" className="mt-4 text-primary border-primary hover:bg-primary/10">
           <Link href="/notes">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Notes
+            <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back to Notes
           </Link>
         </Button>
       </div>
@@ -74,7 +75,7 @@ export default function EditNotePage() {
     <div className="max-w-2xl mx-auto">
       <Button asChild variant="outline" className="mb-6 text-primary border-primary hover:bg-primary/10">
         <Link href={`/notes/${id}`}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Note Details
+          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back to Note Details
         </Link>
       </Button>
       <Card className="shadow-xl">

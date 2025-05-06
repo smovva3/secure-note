@@ -272,7 +272,7 @@ export default function CreateNoteForm() {
               <Image src={preview} alt="Attachment preview" width={100} height={100} className="rounded-md object-cover max-h-32" data-ai-hint="file preview" />
             )}
             {preview && fileType === "text/plain" && (
-              <div className="mt-2 p-2 border rounded bg-background max-h-32 overflow-y-auto text-xs">
+              <div className="mt-2 p-2 border rounded bg-background max-h-32 overflow-y-auto text-xs" aria-label="Text file preview">
                 <pre>{preview.substring(0, 200)}{preview.length > 200 ? '...' : ''}</pre>
               </div>
             )}
