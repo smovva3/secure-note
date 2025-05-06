@@ -5,7 +5,7 @@ export interface User {
 export interface NoteFile {
   name: string;
   type: string; // MIME type
-  url?: string; // For image preview using URL.createObjectURL
+  url?: string; // For image preview using URL.createObjectURL OR server path
   content?: string; // For text file preview
 }
 export interface Note {

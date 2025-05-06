@@ -1,3 +1,4 @@
+
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -28,20 +29,21 @@ const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'text/plain'
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(100, { message: "Title must be 100 characters or less." }),
   content: z.string().min(1, { message: "Content is required." }),
-  attachment: z.custom<FileList>((val) => val instanceof FileList, "Please upload a file.")
+  attachmentFile: z.custom<File>((val) => val instanceof File, "Please select a file.") // Changed to single File object
     .optional()
-    .refine((files) => !files || files.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
-    .refine((files) => !files || files.length === 0 || ALLOWED_FILE_TYPES.includes(files?.[0]?.type), "Only .jpg, .jpeg, .png, .gif, .txt, .pdf files are allowed."),
+    .refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .refine((file) => !file || ALLOWED_FILE_TYPES.includes(file.type), "Only .jpg, .jpeg, .png, .gif, .txt, .pdf files are allowed."),
 });
 
 export default function CreateNoteForm() {
   const { addNote } = useNotes();
   const router = useRouter();
   const { toast } = useToast();
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null); // For image Data URL or text content
   const [fileType, setFileType] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -55,30 +57,30 @@ export default function CreateNoteForm() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      form.setValue("attachment", event.target.files);
+      form.setValue("attachmentFile", file); // Store the File object
       if (ALLOWED_FILE_TYPES.includes(file.type)) {
         setFileName(file.name);
         setFileType(file.type);
         if (file.type.startsWith("image/")) {
           const reader = new FileReader();
           reader.onloadend = () => {
-            setPreview(reader.result as string);
+            setPreview(reader.result as string); // Data URL for image preview
           };
           reader.readAsDataURL(file);
         } else if (file.type === "text/plain") {
           const reader = new FileReader();
           reader.onloadend = () => {
-            setPreview(reader.result as string); // Store text content for preview
+            setPreview(reader.result as string); // Text content for preview
           };
           reader.readAsText(file);
         } else {
-          setPreview(null); // No preview for other types like PDF
+          setPreview(null); 
         }
       } else {
         setPreview(null);
         setFileType(null);
         setFileName(null);
-        form.resetField("attachment");
+        form.resetField("attachmentFile");
         toast({
           title: "Invalid File Type",
           description: "Please upload a valid file type (JPG, PNG, GIF, TXT, PDF).",
@@ -86,7 +88,7 @@ export default function CreateNoteForm() {
         });
       }
     } else {
-      form.resetField("attachment");
+      form.resetField("attachmentFile");
       setPreview(null);
       setFileType(null);
       setFileName(null);
@@ -94,7 +96,7 @@ export default function CreateNoteForm() {
   };
 
   const removeAttachment = () => {
-    form.resetField("attachment");
+    form.resetField("attachmentFile");
     setPreview(null);
     setFileType(null);
     setFileName(null);
@@ -102,24 +104,55 @@ export default function CreateNoteForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    let noteFile: NoteFile | undefined = undefined;
-    if (values.attachment && values.attachment.length > 0) {
-      const file = values.attachment[0];
-      noteFile = {
-        name: file.name,
-        type: file.type,
-      };
-      if (file.type.startsWith("image/")) {
-        noteFile.url = URL.createObjectURL(file); 
-      } else if (file.type === "text/plain") {
-        noteFile.content = await file.text(); 
+    let noteAttachment: NoteFile | undefined = undefined;
+
+    if (values.attachmentFile) {
+      setIsUploading(true);
+      const file = values.attachmentFile;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'File upload failed');
+        }
+
+        const result = await response.json();
+        noteAttachment = {
+          name: result.filename,
+          type: result.filetype,
+          url: result.url, // Server URL
+        };
+        // If it's a text file, keep the client-side preview content
+        if (file.type === "text/plain" && preview) {
+          noteAttachment.content = preview;
+        }
+
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast({
+          title: "Upload Error",
+          description: (error as Error).message || "Could not upload the attachment.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        setIsSubmitting(false);
+        return;
+      } finally {
+        setIsUploading(false);
       }
     }
 
     const success = addNote({
       title: values.title,
       content: values.content,
-      attachment: noteFile,
+      attachment: noteAttachment,
     });
 
     setIsSubmitting(false);
@@ -177,30 +210,38 @@ export default function CreateNoteForm() {
         />
         <FormField
           control={form.control}
-          name="attachment"
-          render={() => ( // field is not directly used here but linked by form state
+          name="attachmentFile" // Ensure this matches the schema
+          render={() => ( 
             <FormItem>
               <FormLabel htmlFor="attachment-upload-create" className="text-foreground/80">Attachment (Optional)</FormLabel>
               <FormControl>
                 <div className="relative flex items-center justify-center w-full">
                   <label
                     htmlFor="attachment-upload-create"
-                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent/30 hover:bg-accent/50 border-primary/50 hover:border-primary transition-colors"
+                    className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent/30 hover:bg-accent/50 border-primary/50 hover:border-primary transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Paperclip className="w-8 h-8 mb-2 text-primary/70" aria-hidden="true" />
-                      <p className="mb-1 text-sm text-foreground/70">
-                        <span className="font-semibold">Click to upload</span> or drag and drop
-                      </p>
-                      <p className="text-xs text-muted-foreground">JPG, PNG, GIF, TXT, PDF (MAX. 5MB)</p>
-                    </div>
+                    {isUploading ? (
+                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                         <Loader2 className="w-8 h-8 mb-2 text-primary/70 animate-spin" aria-hidden="true" />
+                         <p className="text-sm text-foreground/70">Uploading...</p>
+                       </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Paperclip className="w-8 h-8 mb-2 text-primary/70" aria-hidden="true" />
+                        <p className="mb-1 text-sm text-foreground/70">
+                          <span className="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-muted-foreground">JPG, PNG, GIF, TXT, PDF (MAX. 5MB)</p>
+                      </div>
+                    )}
                     <Input
                       id="attachment-upload-create"
                       type="file"
                       className="hidden"
                       onChange={handleFileChange}
                       accept={ALLOWED_FILE_TYPES.join(",")}
-                       aria-describedby="attachment-description-create"
+                      aria-describedby="attachment-description-create"
+                      disabled={isUploading}
                     />
                   </label>
                 </div>
@@ -222,6 +263,7 @@ export default function CreateNoteForm() {
               className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive"
               onClick={removeAttachment}
               aria-label="Remove attachment"
+              disabled={isUploading || isSubmitting}
             >
               <XCircle className="h-5 w-5" aria-hidden="true"/>
             </Button>
@@ -243,10 +285,11 @@ export default function CreateNoteForm() {
           </div>
         )}
 
-        <Button type="submit" className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
-          {isSubmitting ? (
+        <Button type="submit" className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting || isUploading}>
+          {isSubmitting || isUploading ? (
             <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> Creating Note...
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> 
+              {isUploading ? 'Uploading File...' : 'Creating Note...'}
             </>
           ) : (
             <>

@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Clock, Paperclip, Download, Edit, Trash2, Image as ImageIcon, FileText as FileTextIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import Image from 'next/image'; // Next.js Image component
+import Image from 'next/image'; 
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -48,6 +49,7 @@ export default function NoteDetailsPage() {
   const handleDelete = () => {
     if (note) {
       setIsDeleting(true);
+      // Future: Add API call to delete file from server if note.attachment.url exists
       const success = deleteNote(note.id);
       if (success) {
         toast({
@@ -116,39 +118,64 @@ export default function NoteDetailsPage() {
               </h3>
               <div className="p-4 border rounded-lg bg-accent/30">
                 <p className="text-sm font-medium text-foreground mb-2">{note.attachment.name}</p>
+                
+                {/* Image Preview: Uses server URL */}
                 {note.attachment.url && note.attachment.type.startsWith('image/') && (
                   <Image
-                    src={note.attachment.url}
-                    alt={note.attachment.name || "Attachment preview"}
+                    src={note.attachment.url} // This is now /uploads/filename.ext
+                    alt={note.attachment.name || "Attachment image"}
                     width={300}
                     height={200}
                     className="rounded-md object-contain max-h-64 w-auto shadow-md"
                     data-ai-hint="attachment preview"
+                    unoptimized={note.attachment.url.startsWith('/uploads/')} // Useful if Next.js image optimization struggles with local files or for simplicity
                   />
                 )}
+
+                {/* Text Preview: Uses stored content if available */}
                 {note.attachment.content && note.attachment.type === 'text/plain' && (
                   <div className="mt-2 p-3 border rounded bg-background max-h-64 overflow-y-auto text-sm">
                     <pre>{note.attachment.content}</pre>
                   </div>
                 )}
-                {(!note.attachment.url && !note.attachment.content && note.attachment.type.startsWith('image/')) && (
+
+                {/* Fallback for image if URL exists but no specific preview */}
+                {note.attachment.url && note.attachment.type.startsWith('image/') && !note.attachment.content && (
+                   <p className="text-xs text-muted-foreground mt-1">Image attachment.</p>
+                )}
+
+                {/* Fallback for text if URL exists, but no local content for preview */}
+                {note.attachment.url && note.attachment.type === 'text/plain' && !note.attachment.content &&(
+                  <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
+                    <FileTextIcon className="h-10 w-10" aria-hidden="true" />
+                    <span>Text file attached. Download to view.</span>
+                  </div>
+                )}
+
+                {/* Generic Fallback for other types with URL (e.g. PDF) */}
+                {note.attachment.url && !note.attachment.type.startsWith('image/') && !note.attachment.type.startsWith('text/') && (
+                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
+                      <FileTextIcon className="h-10 w-10" aria-hidden="true" />
+                      <span>File attached: {note.attachment.name}. Download to view.</span>
+                   </div>
+                )}
+                
+                {/* Fallbacks for missing URL (should be rare with new upload logic) */}
+                 {(!note.attachment.url && note.attachment.type.startsWith('image/')) && (
                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
                     <ImageIcon className="h-10 w-10" aria-hidden="true" />
                     <span>Image preview unavailable.</span>
                   </div>
                 )}
-                 {(!note.attachment.url && !note.attachment.content && note.attachment.type === 'text/plain') && (
+                 {(!note.attachment.url && note.attachment.type === 'text/plain' && !note.attachment.content) && (
                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
                     <FileTextIcon className="h-10 w-10" aria-hidden="true" />
                     <span>Text preview unavailable.</span>
                   </div>
                 )}
-                {!note.attachment.type.startsWith('image/') && !note.attachment.type.startsWith('text/') && (
-                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
-                      <FileTextIcon className="h-10 w-10" aria-hidden="true" />
-                      <span>Preview not available for this file type.</span>
-                   </div>
-                )}
+
+
+                {/* Download Button: Uses server URL or creates blob from content for text */}
                 {note.attachment.url && (
                   <Button variant="outline" size="sm" asChild className="mt-3 text-primary border-primary hover:bg-primary/10">
                     <a href={note.attachment.url} download={note.attachment.name}>
@@ -158,7 +185,7 @@ export default function NoteDetailsPage() {
                 )}
                 {!note.attachment.url && note.attachment.content && note.attachment.type === 'text/plain' && (
                    <Button variant="outline" size="sm" onClick={() => {
-                     if (!document) return; // Guard against SSR
+                     if (!document) return; 
                      const blob = new Blob([note.attachment!.content!], { type: 'text/plain' });
                      const url = URL.createObjectURL(blob);
                      const a = document.createElement('a');
@@ -169,7 +196,7 @@ export default function NoteDetailsPage() {
                      document.body.removeChild(a);
                      URL.revokeObjectURL(url);
                    }} className="mt-3 text-primary border-primary hover:bg-primary/10">
-                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download Text
                    </Button>
                 )}
               </div>
