@@ -38,7 +38,6 @@ export default function NoteDetailsPage() {
       if (fetchedNote) {
         setNote(fetchedNote);
       } else {
-        // If note not found, redirect or show error
         toast({ title: "Note not found", description: "The requested note could not be found or you don't have access.", variant: "destructive" });
         router.push('/notes');
       }
@@ -69,18 +68,16 @@ export default function NoteDetailsPage() {
 
   if (isLoading || notesLoading) {
     return (
-      <div className="flex flex-col items-center justify-center text-muted-foreground py-10">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+      <div className="flex flex-col items-center justify-center text-muted-foreground py-10 min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" aria-label="Loading note details" />
         <p className="text-lg">Loading note details...</p>
       </div>
     );
   }
 
   if (!note) {
-     // This state should ideally be handled by the redirect in useEffect,
-     // but as a fallback:
     return (
-      <div className="text-center py-10">
+      <div className="text-center py-10 min-h-screen">
         <h2 className="text-2xl font-semibold text-destructive">Note Not Found</h2>
         <p className="text-muted-foreground">The note you are looking for does not exist or has been deleted.</p>
         <Button asChild variant="outline" className="mt-4 text-primary border-primary hover:bg-primary/10">
@@ -98,14 +95,14 @@ export default function NoteDetailsPage() {
     <div className="max-w-3xl mx-auto">
       <Button asChild variant="outline" className="mb-6 text-primary border-primary hover:bg-primary/10">
         <Link href="/notes">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Notes
+          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back to Notes
         </Link>
       </Button>
       <Card className="shadow-xl overflow-hidden">
         <CardHeader className="bg-secondary/30 p-6">
           <CardTitle className="text-3xl font-bold text-primary">{note.title}</CardTitle>
           <CardDescription className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
-            <Clock className="h-4 w-4" /> Created: {formattedDate}
+            <Clock className="h-4 w-4" aria-hidden="true" /> Created: {formattedDate}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
@@ -115,14 +112,14 @@ export default function NoteDetailsPage() {
           {note.attachment && (
             <div className="pt-4 border-t">
               <h3 className="text-lg font-semibold text-primary mb-3 flex items-center">
-                <Paperclip className="mr-2 h-5 w-5" /> Attachment
+                <Paperclip className="mr-2 h-5 w-5" aria-hidden="true" /> Attachment
               </h3>
               <div className="p-4 border rounded-lg bg-accent/30">
                 <p className="text-sm font-medium text-foreground mb-2">{note.attachment.name}</p>
                 {note.attachment.url && note.attachment.type.startsWith('image/') && (
                   <Image
                     src={note.attachment.url}
-                    alt={note.attachment.name}
+                    alt={note.attachment.name || "Attachment preview"}
                     width={300}
                     height={200}
                     className="rounded-md object-contain max-h-64 w-auto shadow-md"
@@ -136,43 +133,43 @@ export default function NoteDetailsPage() {
                 )}
                 {(!note.attachment.url && !note.attachment.content && note.attachment.type.startsWith('image/')) && (
                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
-                    <ImageIcon className="h-10 w-10" />
+                    <ImageIcon className="h-10 w-10" aria-hidden="true" />
                     <span>Image preview unavailable.</span>
                   </div>
                 )}
                  {(!note.attachment.url && !note.attachment.content && note.attachment.type === 'text/plain') && (
                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
-                    <FileTextIcon className="h-10 w-10" />
+                    <FileTextIcon className="h-10 w-10" aria-hidden="true" />
                     <span>Text preview unavailable.</span>
                   </div>
                 )}
                 {!note.attachment.type.startsWith('image/') && !note.attachment.type.startsWith('text/') && (
                    <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
-                      <FileTextIcon className="h-10 w-10" />
+                      <FileTextIcon className="h-10 w-10" aria-hidden="true" />
                       <span>Preview not available for this file type.</span>
                    </div>
                 )}
-                {/* Basic download functionality - in a real app, this would point to a backend endpoint */}
                 {note.attachment.url && (
                   <Button variant="outline" size="sm" asChild className="mt-3 text-primary border-primary hover:bg-primary/10">
                     <a href={note.attachment.url} download={note.attachment.name}>
-                      <Download className="mr-2 h-4 w-4" /> Download
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download
                     </a>
                   </Button>
                 )}
                 {!note.attachment.url && note.attachment.content && note.attachment.type === 'text/plain' && (
                    <Button variant="outline" size="sm" onClick={() => {
-                     const blob = new Blob([note.attachment.content!], { type: 'text/plain' });
+                     if (!document) return; // Guard against SSR
+                     const blob = new Blob([note.attachment!.content!], { type: 'text/plain' });
                      const url = URL.createObjectURL(blob);
                      const a = document.createElement('a');
                      a.href = url;
-                     a.download = note.attachment.name;
+                     a.download = note.attachment!.name;
                      document.body.appendChild(a);
                      a.click();
                      document.body.removeChild(a);
                      URL.revokeObjectURL(url);
                    }} className="mt-3 text-primary border-primary hover:bg-primary/10">
-                      <Download className="mr-2 h-4 w-4" /> Download
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" /> Download
                    </Button>
                 )}
               </div>
@@ -180,13 +177,15 @@ export default function NoteDetailsPage() {
           )}
         </CardContent>
         <CardFooter className="p-6 border-t flex justify-end gap-2">
-          {/* <Button variant="outline" disabled className="text-muted-foreground border-muted">
-            <Edit className="mr-2 h-4 w-4" /> Edit (Coming Soon)
-          </Button> */}
+           <Button asChild variant="outline" className="text-primary border-primary hover:bg-primary/10">
+            <Link href={`/notes/edit/${note.id}`}>
+              <Edit className="mr-2 h-4 w-4" aria-hidden="true" /> Edit
+            </Link>
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isDeleting}>
-                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />}
                 {isDeleting ? "Deleting..." : "Delete"}
               </Button>
             </AlertDialogTrigger>
@@ -199,8 +198,13 @@ export default function NoteDetailsPage() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isDeleting}>
-                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                <AlertDialogAction 
+                    onClick={handleDelete} 
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
+                    disabled={isDeleting}
+                    aria-label={`Confirm deletion of note ${note.title}`}
+                >
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                   Continue
                 </AlertDialogAction>
               </AlertDialogFooter>

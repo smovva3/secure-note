@@ -27,15 +27,23 @@ export function useNotes() {
     return allNotes.find(note => note.id === id && note.userId === user.username);
   };
   
+  const updateNote = (id: string, updatedData: Partial<Omit<Note, 'id' | 'userId' | 'timestamp'>>) => {
+    if (!user) return false;
+    setAllNotes(prevNotes =>
+      prevNotes.map(note =>
+        note.id === id && note.userId === user.username
+          ? { ...note, ...updatedData, timestamp: new Date().toISOString() }
+          : note
+      )
+    );
+    return true;
+  };
+
   const deleteNote = (id: string) => {
     if (!user) return false;
     setAllNotes(prevNotes => prevNotes.filter(note => !(note.id === id && note.userId === user.username)));
     return true;
   };
 
-  return { notes: userNotes, addNote, getNoteById, deleteNote, isLoading: user === undefined || allNotes === undefined };
+  return { notes: userNotes, addNote, getNoteById, updateNote, deleteNote, isLoading: user === undefined || allNotes === undefined };
 }
-
-// Need to install uuid: npm install uuid @types/uuid
-// The user's package.json does not have uuid. This comment is for the developer.
-// I will add uuid to package.json.

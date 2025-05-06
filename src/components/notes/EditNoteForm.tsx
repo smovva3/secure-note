@@ -16,14 +16,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNotes } from "@/hooks/useNotes";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import type { NoteFile } from "@/lib/types";
-import { useState, ChangeEvent } from "react";
-import { Paperclip, XCircle, Image as ImageIcon, FileText as FileTextIcon, Loader2, PlusCircle } from "lucide-react";
+import type { Note, NoteFile } from "@/lib/types";
+import { useState, ChangeEvent, useEffect } from "react";
+import { Paperclip, XCircle, Image as ImageIcon, FileText as FileTextIcon, Loader2, Save } from "lucide-react";
 import Image from "next/image";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'text/plain', 'application/pdf'];
-
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(100, { message: "Title must be 100 characters or less." }),
@@ -34,26 +33,54 @@ const formSchema = z.object({
     .refine((files) => !files || files.length === 0 || ALLOWED_FILE_TYPES.includes(files?.[0]?.type), "Only .jpg, .jpeg, .png, .gif, .txt, .pdf files are allowed."),
 });
 
-export default function CreateNoteForm() {
-  const { addNote } = useNotes();
+interface EditNoteFormProps {
+  note: Note;
+}
+
+export default function EditNoteForm({ note }: EditNoteFormProps) {
+  const { updateNote } = useNotes();
   const router = useRouter();
   const { toast } = useToast();
-  const [preview, setPreview] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  
+  const [preview, setPreview] = useState<string | null>(note.attachment?.url || (note.attachment?.type === 'text/plain' ? note.attachment?.content || null : null));
+  const [fileType, setFileType] = useState<string | null>(note.attachment?.type || null);
+  const [fileName, setFileName] = useState<string | null>(note.attachment?.name || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachmentChanged, setAttachmentChanged] = useState(false);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      content: "",
+      title: note.title,
+      content: note.content,
     },
   });
 
+  useEffect(() => {
+    // Pre-fill form with note data
+    form.reset({
+      title: note.title,
+      content: note.content,
+    });
+    // Pre-fill attachment preview if it exists
+    if (note.attachment) {
+      setFileName(note.attachment.name);
+      setFileType(note.attachment.type);
+      if (note.attachment.url && note.attachment.type.startsWith("image/")) {
+        setPreview(note.attachment.url);
+      } else if (note.attachment.content && note.attachment.type === "text/plain") {
+        setPreview(note.attachment.content);
+      } else {
+        setPreview(null);
+      }
+    }
+  }, [note, form]);
+
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setAttachmentChanged(true); // Mark that attachment has been interacted with
     if (file) {
       form.setValue("attachment", event.target.files);
       if (ALLOWED_FILE_TYPES.includes(file.type)) {
@@ -68,11 +95,11 @@ export default function CreateNoteForm() {
         } else if (file.type === "text/plain") {
           const reader = new FileReader();
           reader.onloadend = () => {
-            setPreview(reader.result as string); // Store text content for preview
+            setPreview(reader.result as string); 
           };
           reader.readAsText(file);
         } else {
-          setPreview(null); // No preview for other types like PDF
+          setPreview(null);
         }
       } else {
         setPreview(null);
@@ -98,42 +125,51 @@ export default function CreateNoteForm() {
     setPreview(null);
     setFileType(null);
     setFileName(null);
+    setAttachmentChanged(true); // Mark that attachment has been removed
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    let noteFile: NoteFile | undefined = undefined;
-    if (values.attachment && values.attachment.length > 0) {
-      const file = values.attachment[0];
-      noteFile = {
-        name: file.name,
-        type: file.type,
-      };
-      if (file.type.startsWith("image/")) {
-        noteFile.url = URL.createObjectURL(file); 
-      } else if (file.type === "text/plain") {
-        noteFile.content = await file.text(); 
-      }
+    let noteFileUpdate: NoteFile | undefined | null = note.attachment; // Default to existing or undefined
+
+    if (attachmentChanged) { // Only process attachment if it was changed
+        if (values.attachment && values.attachment.length > 0) {
+            const file = values.attachment[0];
+            noteFileUpdate = {
+                name: file.name,
+                type: file.type,
+            };
+            if (file.type.startsWith("image/")) {
+                // For images, create a new object URL. Old one might be revoked.
+                noteFileUpdate.url = URL.createObjectURL(file); 
+            } else if (file.type === "text/plain") {
+                noteFileUpdate.content = await file.text();
+            }
+        } else {
+            // Attachment was removed
+            noteFileUpdate = null; // Explicitly set to null to indicate removal
+        }
     }
 
-    const success = addNote({
+
+    const success = updateNote(note.id, {
       title: values.title,
       content: values.content,
-      attachment: noteFile,
+      attachment: noteFileUpdate === null ? undefined : noteFileUpdate, // Pass undefined if null
     });
 
     setIsSubmitting(false);
 
     if (success) {
       toast({
-        title: "Note Created",
-        description: "Your new note has been saved successfully.",
+        title: "Note Updated",
+        description: "Your note has been saved successfully.",
       });
-      router.push("/notes");
+      router.push(`/notes/${note.id}`);
     } else {
       toast({
         title: "Error",
-        description: "Failed to create note. Please try again.",
+        description: "Failed to update note. Please try again.",
         variant: "destructive",
       });
     }
@@ -147,9 +183,9 @@ export default function CreateNoteForm() {
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor="title-create" className="text-foreground/80">Title</FormLabel>
+              <FormLabel htmlFor="title" className="text-foreground/80">Title</FormLabel>
               <FormControl>
-                <Input id="title-create" placeholder="Enter note title" {...field} className="text-base py-3 px-4 focus:ring-primary focus:border-primary" aria-required="true" />
+                <Input id="title" placeholder="Enter note title" {...field} className="text-base py-3 px-4 focus:ring-primary focus:border-primary" aria-required="true" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -160,10 +196,10 @@ export default function CreateNoteForm() {
           name="content"
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor="content-create" className="text-foreground/80">Content</FormLabel>
+              <FormLabel htmlFor="content" className="text-foreground/80">Content</FormLabel>
               <FormControl>
                 <Textarea
-                  id="content-create"
+                  id="content"
                   placeholder="Write your note here..."
                   {...field}
                   rows={8}
@@ -178,13 +214,13 @@ export default function CreateNoteForm() {
         <FormField
           control={form.control}
           name="attachment"
-          render={() => ( // field is not directly used here but linked by form state
+          render={() => ( // field is not directly used for display, but for form state
             <FormItem>
-              <FormLabel htmlFor="attachment-upload-create" className="text-foreground/80">Attachment (Optional)</FormLabel>
+              <FormLabel htmlFor="attachment-upload-edit" className="text-foreground/80">Attachment (Optional)</FormLabel>
               <FormControl>
                 <div className="relative flex items-center justify-center w-full">
                   <label
-                    htmlFor="attachment-upload-create"
+                    htmlFor="attachment-upload-edit"
                     className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent/30 hover:bg-accent/50 border-primary/50 hover:border-primary transition-colors"
                   >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -195,17 +231,17 @@ export default function CreateNoteForm() {
                       <p className="text-xs text-muted-foreground">JPG, PNG, GIF, TXT, PDF (MAX. 5MB)</p>
                     </div>
                     <Input
-                      id="attachment-upload-create"
+                      id="attachment-upload-edit"
                       type="file"
                       className="hidden"
                       onChange={handleFileChange}
                       accept={ALLOWED_FILE_TYPES.join(",")}
-                       aria-describedby="attachment-description-create"
+                      aria-describedby="attachment-description"
                     />
                   </label>
                 </div>
               </FormControl>
-              <p id="attachment-description-create" className="sr-only">
+              <p id="attachment-description" className="sr-only">
                 Upload an optional attachment. Allowed types: JPG, PNG, GIF, TXT, PDF. Maximum size: 5MB.
               </p>
               <FormMessage />
@@ -223,7 +259,7 @@ export default function CreateNoteForm() {
               onClick={removeAttachment}
               aria-label="Remove attachment"
             >
-              <XCircle className="h-5 w-5" aria-hidden="true"/>
+              <XCircle className="h-5 w-5" aria-hidden="true" />
             </Button>
             <p className="text-sm font-medium text-foreground mb-2" aria-live="polite">Attached: {fileName}</p>
             {preview && fileType?.startsWith("image/") && (
@@ -246,11 +282,11 @@ export default function CreateNoteForm() {
         <Button type="submit" className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> Creating Note...
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" /> Saving Changes...
             </>
           ) : (
             <>
-             <PlusCircle className="mr-2 h-5 w-5" aria-hidden="true" /> Create Note
+              <Save className="mr-2 h-5 w-5" aria-hidden="true" /> Save Changes
             </>
           )}
         </Button>
