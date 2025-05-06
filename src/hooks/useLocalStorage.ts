@@ -27,14 +27,21 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
       setStoredValue(readValue());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isClient]);
+  }, [isClient, key]); // Added key to dependencies
 
 
   const setValue: Dispatch<SetStateAction<T>> = (value) => {
     if (!isClient) {
       console.warn(
-        `Tried setting localStorage key “${key}” even though environment is not a client`
+        `Tried setting localStorage key “${key}” even though environment is not a client. State will be updated in memory but not persisted.`
       );
+      // Update local component state even if not client, to avoid UI discrepancies
+      try {
+        const newValue = value instanceof Function ? value(storedValue) : value;
+        setStoredValue(newValue);
+      } catch (e) {
+         console.error("Error computing new state value for localStorage (SSR context):", e);
+      }
       return;
     }
     try {
@@ -43,6 +50,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
       setStoredValue(newValue);
     } catch (error) {
       console.warn(`Error setting localStorage key “${key}”:`, error);
+      throw new Error(`Failed to save to local storage for key "${key}". This could be due to storage limits or other browser restrictions.`);
     }
   };
 
@@ -50,3 +58,4 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
 }
 
 export default useLocalStorage;
+

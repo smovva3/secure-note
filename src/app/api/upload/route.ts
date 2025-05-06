@@ -11,12 +11,24 @@ import { writeFile } from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'text/plain', 'application/pdf'];
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
 
   if (!file) {
     return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
+  }
+
+  // Server-side validation
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return NextResponse.json({ error: `File is too large. Max size is ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB.` }, { status: 413 }); // 413 Payload Too Large
+  }
+
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    return NextResponse.json({ error: `Invalid file type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}.` }, { status: 415 }); // 415 Unsupported Media Type
   }
 
   const bytes = await file.arrayBuffer();
@@ -40,6 +52,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, url: publicUrl, filename: file.name, filetype: file.type });
   } catch (error) {
     console.error('Error saving file:', error);
-    return NextResponse.json({ error: 'Error saving file.' }, { status: 500 });
+    // Check if error is an instance of Error to safely access message
+    const errorMessage = error instanceof Error ? error.message : 'Error saving file.';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+
