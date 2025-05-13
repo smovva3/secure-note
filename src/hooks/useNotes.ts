@@ -1,7 +1,7 @@
 
 "use client";
 import useLocalStorage from './useLocalStorage';
-import type { Note } from '@/lib/types';
+import type { Note, NoteFile } from '@/lib/types';
 import { useAuth } from './useAuth';
 import { v4 as uuidv4 } from 'uuid'; // Using uuid for better ID generation
 
@@ -9,7 +9,6 @@ export function useNotes() {
   const { user } = useAuth();
   const [allNotes, setAllNotes] = useLocalStorage<Note[]>('securenote-notes', []);
 
-  // Filter notes for the current user, and ensure notes is always an array
   const userNotes = user 
     ? (Array.isArray(allNotes) ? allNotes.filter(note => note.userId === user.username) : []) 
     : [];
@@ -21,6 +20,7 @@ export function useNotes() {
       id: uuidv4(),
       timestamp: new Date().toISOString(),
       userId: user.username,
+      // attachment is passed directly from newNoteData
     };
     try {
       setAllNotes(prevNotes => [...(Array.isArray(prevNotes) ? prevNotes : []), note]);
@@ -57,8 +57,6 @@ export function useNotes() {
   const deleteNote = (id: string) => {
     if (!user) return false;
     try {
-      // Future: If attachments are stored on a server, this is where you'd call an API to delete the file.
-      // For now, we only remove the note from local storage.
       setAllNotes(prevNotes => (Array.isArray(prevNotes) ? prevNotes : []).filter(note => !(note.id === id && note.userId === user.username)));
       return true;
     } catch (error) {
@@ -73,7 +71,6 @@ export function useNotes() {
     getNoteById, 
     updateNote, 
     deleteNote, 
-    isLoading: user === undefined || allNotes === undefined 
+    isLoading: user === undefined || allNotes === undefined // This might need adjustment based on AuthProvider's loading
   };
 }
-

@@ -1,9 +1,10 @@
+
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { Note } from "@/lib/types"; // Note type will be simplified
+import type { Note } from "@/lib/types"; 
 import { formatDistanceToNow } from 'date-fns';
-import { FileText, Clock, Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { FileText, Clock, Trash2, ExternalLink, Loader2, Paperclip } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,17 +45,20 @@ export default function NoteCard({ note }: NoteCardProps) {
         variant: "destructive",
       });
     }
-    setIsDeleting(false);
+    setIsDeleting(false); // This will be reached even if AlertDialog closes before deleteNote finishes
   };
 
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold text-primary flex items-center gap-2">
-          <FileText className="h-5 w-5" aria-hidden="true" />
-          {note.title}
-        </CardTitle>
-        <CardDescription className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-xl font-semibold text-primary flex items-center gap-2">
+            <FileText className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            <span className="truncate" title={note.title}>{note.title}</span>
+          </CardTitle>
+          {note.attachment && <Paperclip className="h-5 w-5 text-muted-foreground flex-shrink-0" aria-label="Has attachment" />}
+        </div>
+        <CardDescription className="flex items-center gap-1 text-xs text-muted-foreground pt-1">
           <Clock className="h-3 w-3" aria-hidden="true" /> {formattedDate}
         </CardDescription>
       </CardHeader>
@@ -62,7 +66,6 @@ export default function NoteCard({ note }: NoteCardProps) {
         <p className="text-sm text-foreground/80 line-clamp-3">
           {note.content}
         </p>
-        {/* Attachment info removed */}
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-4 border-t">
         <Button asChild variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10">
