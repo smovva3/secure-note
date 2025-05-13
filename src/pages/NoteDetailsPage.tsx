@@ -41,7 +41,6 @@ export default function NoteDetailsPage() {
       }
       setIsLoadingPage(false);
     } else if (!id && !notesLoading) {
-      // Handle case where ID is missing from URL
        toast({ title: "Invalid URL", description: "No note ID specified.", variant: "destructive" });
        navigate('/notes', { replace: true });
        setIsLoadingPage(false);
@@ -74,25 +73,40 @@ export default function NoteDetailsPage() {
 
     const { url, content, name, type } = note.attachment;
 
-    if (url && type.startsWith('image/')) { // Assumes URL is a data URI for images
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    let blobType = type;
+    let dataToDownload: string | Blob;
+    let isDataUri = false;
+
+    if (url && type.startsWith('image/')) { 
+      dataToDownload = url; // data URI
+      isDataUri = true;
     } else if (content && type === 'text/plain') {
-      const blob = new Blob([content], { type: 'text/plain' });
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
-    } else {
+      dataToDownload = new Blob([content], { type: 'text/plain' });
+    } else if (url && !type.startsWith('image/')) { // For other file types that might have a URL (e.g., from a future backend)
+        // This case is less likely with current local storage setup but good for future proofing
+        // For now, we assume if it's not an image, it won't be a data URI from local setup.
+        // If it were a direct link to a file, a simple anchor download would work.
+        // Given current setup, this else if might not be hit if URL is only for image data URIs.
+        toast({ title: "Download Info", description: "Direct download for this file type via URL is not fully supported in local mode.", variant: "default" });
+        return;
+    }
+     else {
       toast({ title: "Download Error", description: "Cannot download this attachment type or data is missing.", variant: "destructive" });
+      return;
+    }
+
+    const a = document.createElement('a');
+    if (isDataUri) {
+        a.href = dataToDownload as string;
+    } else {
+        a.href = URL.createObjectURL(dataToDownload as Blob);
+    }
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if (!isDataUri) {
+        URL.revokeObjectURL(a.href);
     }
   };
 
@@ -146,14 +160,17 @@ export default function NoteDetailsPage() {
                 <Paperclip className="mr-2 h-5 w-5" /> Attachment
               </h3>
               <div className="p-4 border rounded-lg bg-accent/30 space-y-3">
-                <p className="text-sm font-medium text-foreground">{note.attachment.name}</p>
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    {note.attachment.type.startsWith("image/") ? <ImageIcon className="h-5 w-5 text-primary" /> : <FileTextIcon className="h-5 w-5 text-primary" />}
+                    <span>{note.attachment.name}</span> ({note.attachment.type})
+                </div>
                 
                 {note.attachment.type.startsWith('image/') && note.attachment.url && (
                   <img
                     src={note.attachment.url}
                     alt={note.attachment.name}
                     className="rounded-md object-contain max-h-64 w-auto shadow-md border"
-                    data-ai-hint="attachment preview"
+                    data-ai-hint="attachment image"
                   />
                 )}
                 {note.attachment.type === 'text/plain' && note.attachment.content && (
@@ -162,22 +179,29 @@ export default function NoteDetailsPage() {
                   </div>
                 )}
 
-                {((note.attachment.type.startsWith('image/') && !note.attachment.url) ||
-                 (note.attachment.type === 'text/plain' && !note.attachment.content)) && (
+                {/* Fallback messages if content/url is missing for expected types */}
+                {note.attachment.type.startsWith('image/') && !note.attachment.url && (
                   <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
-                    {note.attachment.type.startsWith('image/') ? <ImageIcon className="h-10 w-10" /> : <FileTextIcon className="h-10 w-10" />}
-                    <span>Preview data unavailable.</span>
+                    <ImageIcon className="h-10 w-10" />
+                    <span>Image preview data unavailable for {note.attachment.name}.</span>
+                  </div>
+                )}
+                 {note.attachment.type === 'text/plain' && !note.attachment.content && (
+                  <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
+                    <FileTextIcon className="h-10 w-10" />
+                    <span>Text content unavailable for {note.attachment.name}.</span>
                   </div>
                 )}
                 
+                {/* Message for other allowed types that don't have a visual preview */}
                 {!note.attachment.type.startsWith('image/') && note.attachment.type !== 'text/plain' && (
                    <div className="flex items-center gap-2 text-muted-foreground p-4 border border-dashed rounded-md justify-center">
                       <FileTextIcon className="h-10 w-10" />
-                      <span>Preview not available for this file type ({note.attachment.type}).</span>
+                      <span>Preview not available for file type: {note.attachment.type}.</span>
                    </div>
                 )}
 
-                {(note.attachment.url || note.attachment.content) && (
+                {(note.attachment.url || note.attachment.content) && ( // Only show download if there's something to download
                   <Button 
                     variant="outline" 
                     size="sm" 

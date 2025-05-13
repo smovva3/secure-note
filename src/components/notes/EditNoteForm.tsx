@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import type { Note, NoteFile } from "@/lib/types";
 import { useState, useEffect } from "react";
-import { Loader2, Save, Paperclip, XCircle, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Save, XCircle, FileText, Image as ImageIcon } from "lucide-react";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/gif", "text/plain"];
@@ -28,7 +28,9 @@ const formSchema = z.object({
   content: z.string().min(1, { message: "Content is required." }),
   attachment: z.custom<File | undefined>((val) => val === undefined || val instanceof File, {
     message: "Invalid file type",
-  }).optional(),
+  }).refine(file => !file || file.size <= MAX_FILE_SIZE, `File size should not exceed ${MAX_FILE_SIZE / (1024*1024)}MB.`)
+    .refine(file => !file || ALLOWED_FILE_TYPES.includes(file.type), "Only JPEG, PNG, GIF, and TXT files are allowed.")
+    .optional(),
 });
 
 interface EditNoteFormProps {
@@ -41,17 +43,20 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentAttachment, setCurrentAttachment] = useState<NoteFile | null>(note.attachment || null);
-  const [newAttachmentPreview, setNewAttachmentPreview] = useState<string | null>(null);
-  const [newAttachmentFile, setNewAttachmentFile] = useState<NoteFile | null>(null);
 
+  // State for the existing attachment (if any)
+  const [currentAttachment, setCurrentAttachment] = useState<NoteFile | null>(note.attachment || null);
+  
+  // State for the visual preview of a newly selected file
+  const [newFilePreviewDataUrl, setNewFilePreviewDataUrl] = useState<string | null>(null);
+  const [newFilePreviewInfo, setNewFilePreviewInfo] = useState<{name: string, type: string} | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: note.title,
       content: note.content,
-      attachment: undefined, // Handled separately
+      attachment: undefined, // New file input, not pre-filled with existing attachment
     },
   });
 
@@ -59,79 +64,102 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
     form.reset({
       title: note.title,
       content: note.content,
+      attachment: undefined,
     });
     setCurrentAttachment(note.attachment || null);
-    setNewAttachmentFile(null);
-    setNewAttachmentPreview(null);
+    setNewFilePreviewDataUrl(null);
+    setNewFilePreviewInfo(null);
   }, [note, form]);
-
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    form.setValue("attachment", file, { shouldValidate: true }); // Update RHF and validate
+
     if (file) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast({ title: "File too large", description: `File size should not exceed ${MAX_FILE_SIZE / (1024*1024)}MB.`, variant: "destructive" });
-        form.setValue("attachment", undefined);
-        setNewAttachmentPreview(null);
-        setNewAttachmentFile(null);
-        return;
-      }
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        toast({ title: "Invalid file type", description: "Only JPEG, PNG, GIF, and TXT files are allowed.", variant: "destructive" });
-        form.setValue("attachment", undefined);
-        setNewAttachmentPreview(null);
-        setNewAttachmentFile(null);
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (file.type.startsWith("image/")) {
-          setNewAttachmentPreview(reader.result as string);
-          setNewAttachmentFile({ name: file.name, type: file.type, url: reader.result as string });
-        } else if (file.type === "text/plain") {
-          setNewAttachmentPreview(null); 
-          setNewAttachmentFile({ name: file.name, type: file.type, content: reader.result as string });
+        const fieldState = form.getFieldState("attachment");
+        if (fieldState.invalid) {
+            setNewFilePreviewDataUrl(null);
+            setNewFilePreviewInfo(null);
+            // Toast for error handled by FormMessage
+            return;
         }
-        setCurrentAttachment(null); // Clear existing attachment if new one is selected
-      };
-
-      if (file.type.startsWith("image/")) {
-        reader.readAsDataURL(file);
-      } else if (file.type === "text/plain") {
-        reader.readAsText(file);
-      }
-    } else { // No file selected or file removed
-      form.setValue("attachment", undefined);
-      setNewAttachmentPreview(null);
-      setNewAttachmentFile(null);
-      // If user clears file input, we don't automatically restore the old attachment. They must explicitly keep or remove.
+        setNewFilePreviewInfo({ name: file.name, type: file.type });
+        if (file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setNewFilePreviewDataUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            setNewFilePreviewDataUrl(null);
+        }
+    } else {
+        setNewFilePreviewDataUrl(null);
+        setNewFilePreviewInfo(null);
     }
   };
 
   const removeCurrentAttachment = () => {
-    setCurrentAttachment(null);
-    toast({ title: "Attachment Removed", description: "The existing attachment will be removed upon saving." });
+    setCurrentAttachment(null); // Mark existing attachment for removal
+    toast({ title: "Attachment Marked for Removal", description: "The existing attachment will be removed when you save." });
   };
 
-  const removeNewAttachment = () => {
-    form.setValue("attachment", undefined);
-    setNewAttachmentPreview(null);
-    setNewAttachmentFile(null);
+  const removeNewFileSelection = () => {
+    form.setValue("attachment", undefined, { shouldValidate: true }); // Clear RHF value
+    setNewFilePreviewDataUrl(null);
+    setNewFilePreviewInfo(null);
     const fileInput = document.getElementById('attachment-edit') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
 
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    
-    const attachmentToSave = newAttachmentFile ? newAttachmentFile : currentAttachment;
+    let finalAttachment: NoteFile | undefined = currentAttachment ? {...currentAttachment} : undefined; // Start with a copy of current or undefined
+
+    if (values.attachment) { // A new file was selected and is valid
+      const file = values.attachment;
+      try {
+        const fileContent = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          if (file.type.startsWith("image/")) {
+            reader.readAsDataURL(file);
+          } else if (file.type === "text/plain") {
+            reader.readAsText(file);
+          } else {
+            resolve(''); 
+          }
+        });
+
+        if (file.type.startsWith("image/")) {
+          finalAttachment = { name: file.name, type: file.type, url: fileContent };
+        } else if (file.type === "text/plain") {
+          finalAttachment = { name: file.name, type: file.type, content: fileContent };
+        } else {
+           finalAttachment = { name: file.name, type: file.type };
+        }
+      } catch (error) {
+        console.error("Error reading new file for submission:", error);
+        toast({ title: "File Read Error", description: "Could not process the new attachment.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+      }
+    } else if (newFilePreviewInfo === null && form.getValues("attachment") === undefined) {
+      // This condition means the file input was explicitly cleared OR removeCurrentAttachment was clicked.
+      // If removeCurrentAttachment was clicked, currentAttachment is already null.
+      // If a new file was selected then cleared via removeNewFileSelection, values.attachment is undefined.
+      // In this case, if currentAttachment was also marked for removal (is null), finalAttachment should be undefined.
+      // If currentAttachment was not null, it means the user cleared a new selection but wants to keep original.
+      // The initial `finalAttachment = currentAttachment ? {...currentAttachment} : undefined;` covers keeping original if no new file.
+      // If `currentAttachment` became `null` via `removeCurrentAttachment`, `finalAttachment` is already `undefined`.
+    }
+
 
     const success = updateNote(note.id, {
       title: values.title,
       content: values.content,
-      attachment: attachmentToSave || undefined, // Use the new one if present, else the current one (which might be null if removed)
+      attachment: finalAttachment, 
     });
 
     setIsSubmitting(false);
@@ -151,9 +179,9 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
     }
   }
 
-  const displayAttachment = newAttachmentFile || currentAttachment;
-  const displayPreview = newAttachmentPreview || (currentAttachment?.url || null);
-
+  // Determine what to display as preview
+  const displayAttachmentInfo = newFilePreviewInfo || currentAttachment;
+  const displayAttachmentDataUrl = newFilePreviewDataUrl || (currentAttachment?.type.startsWith("image/") ? currentAttachment.url : null);
 
   return (
     <Form {...form}>
@@ -192,42 +220,56 @@ export default function EditNoteForm({ note }: EditNoteFormProps) {
           )}
         />
         
-        <FormItem>
-          <FormLabel htmlFor="attachment-edit" className="text-foreground/80">Attachment (Optional)</FormLabel>
-          <FormControl>
-            <Input 
-              id="attachment-edit" 
-              type="file" 
-              onChange={handleFileChange}
-              className="text-base file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-              accept={ALLOWED_FILE_TYPES.join(",")}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
+        <FormField
+            control={form.control}
+            name="attachment"
+            render={() => (
+            <FormItem>
+              <FormLabel htmlFor="attachment-edit" className="text-foreground/80">
+                {currentAttachment && !newFilePreviewInfo ? "Replace current attachment (Optional)" : "Attachment (Optional)"}
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  id="attachment-edit" 
+                  type="file" 
+                  onChange={handleFileChange}
+                  className="text-base file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                  accept={ALLOWED_FILE_TYPES.join(",")}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        {displayAttachment && (
+        {displayAttachmentInfo && (
           <div className="mt-4 p-3 border rounded-md bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                {displayAttachment.type.startsWith("image/") ? <ImageIcon className="h-5 w-5 text-primary" /> : <FileText className="h-5 w-5 text-primary" />}
-                <span>{displayAttachment.name}</span> ({displayAttachment.type})
+                {displayAttachmentInfo.type.startsWith("image/") ? <ImageIcon className="h-5 w-5 text-primary" /> : <FileText className="h-5 w-5 text-primary" />}
+                <span>{displayAttachmentInfo.name}</span> ({displayAttachmentInfo.type})
               </div>
               <Button 
                 type="button" 
                 variant="ghost" 
                 size="sm" 
-                onClick={newAttachmentFile ? removeNewAttachment : removeCurrentAttachment} 
+                onClick={newFilePreviewInfo ? removeNewFileSelection : removeCurrentAttachment} 
                 className="text-destructive hover:text-destructive/80"
               >
-                <XCircle className="h-4 w-4 mr-1" /> Remove
+                <XCircle className="h-4 w-4 mr-1" /> Remove {newFilePreviewInfo ? "New File" : (currentAttachment ? "Current File" : "")}
               </Button>
             </div>
-            {displayPreview && displayAttachment.type.startsWith("image/") && (
-              <img src={displayPreview} alt="Preview" className="max-h-40 rounded-md object-contain border" data-ai-hint="attachment preview"/>
+            {displayAttachmentDataUrl && displayAttachmentInfo.type.startsWith("image/") && (
+              <img src={displayAttachmentDataUrl} alt="Preview" className="max-h-40 rounded-md object-contain border" data-ai-hint="attachment preview"/>
             )}
-            {!displayPreview && displayAttachment.type === "text/plain" && (
-              <p className="text-xs text-muted-foreground">Text file content will be saved. Preview not shown here.</p>
+            {/* Display existing text content if no new file is previewed and current is text */}
+            {currentAttachment && currentAttachment.type === "text/plain" && currentAttachment.content && !newFilePreviewInfo && (
+                 <div className="mt-2 p-3 border rounded bg-background max-h-40 overflow-y-auto text-sm">
+                    <pre className="whitespace-pre-wrap break-all">{currentAttachment.content}</pre>
+                  </div>
+            )}
+            {!displayAttachmentDataUrl && displayAttachmentInfo.type === "text/plain" && !currentAttachment?.content && (
+              <p className="text-xs text-muted-foreground">Text file selected. Content will be saved. Preview not shown here for new text files.</p>
             )}
           </div>
         )}
