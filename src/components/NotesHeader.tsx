@@ -1,7 +1,5 @@
-
-"use client";
 import { LogOut, Notebook, PlusCircle } from "lucide-react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -17,7 +15,7 @@ export default function NotesHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
-        <Link href="/notes" className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors">
+        <Link to="/notes" className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors">
           <Notebook className="h-7 w-7" aria-hidden="true" />
           <h1 className="text-2xl font-bold">SecureNote</h1>
         </Link>
@@ -27,7 +25,7 @@ export default function NotesHeader() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button asChild variant="ghost" size="icon" className="text-primary hover:bg-primary/10">
-                  <Link href="/notes/create" aria-label="Create New Note">
+                  <Link to="/notes/create" aria-label="Create New Note">
                     <PlusCircle className="h-6 w-6" aria-hidden="true" />
                     <span className="sr-only">Create New Note</span>
                   </Link>

@@ -1,27 +1,32 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
+    "target": "ES2020", // Updated target
+    "useDefineForClassFields": true, // Recommended for Vite
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
     "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
+
+    /* Bundler mode */
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "noEmit": true,
+    "jsx": "react-jsx", // Changed from preserve to react-jsx for Vite
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true, // Keep for compatibility
+    "allowSyntheticDefaultImports": true, // Common in React projects
+
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "types": ["vite/client", "jest"] // Added vite/client for Vite env variables, jest for test types
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["src", "**/*.ts", "**/*.tsx"], // Ensure src is included, next-env.d.ts removed
+  "references": [{ "path": "./tsconfig.node.json" }] // Common for Vite projects to separate main and Node-specific TS config
 }

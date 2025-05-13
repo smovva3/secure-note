@@ -1,20 +1,16 @@
-
-"use client";
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import EditNoteForm from "@/components/notes/EditNoteForm";
 import { useNotes } from '@/hooks/useNotes';
 import type { Note } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-
 export default function EditNotePage() {
   const params = useParams();
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const id = typeof params.id === 'string' ? params.id : '';
   const { getNoteById, isLoading: notesLoading } = useNotes();
@@ -32,20 +28,19 @@ export default function EditNotePage() {
           description: "The note you are trying to edit could not be found.",
           variant: "destructive",
         });
-        router.replace('/notes');
+        navigate('/notes', { replace: true });
       }
       setIsLoadingPage(false);
     } else if (!notesLoading && !id) {
-        // Handle case where ID might be missing from params for some reason
         toast({
           title: "Invalid Page",
           description: "No note ID provided for editing.",
           variant: "destructive",
         });
-        router.replace('/notes');
+        navigate('/notes', { replace: true });
         setIsLoadingPage(false);
     }
-  }, [id, getNoteById, router, notesLoading, toast]);
+  }, [id, getNoteById, navigate, notesLoading, toast]);
 
   if (isLoadingPage || notesLoading) {
     return (
@@ -57,13 +52,12 @@ export default function EditNotePage() {
   }
 
   if (!note) {
-    // This should ideally be caught by the useEffect redirect, but serves as a fallback.
     return (
       <div className="text-center py-10 min-h-screen">
         <h2 className="text-2xl font-semibold text-destructive">Note Not Found</h2>
         <p className="text-muted-foreground">The note you are trying to edit does not exist.</p>
         <Button asChild variant="outline" className="mt-4 text-primary border-primary hover:bg-primary/10">
-          <Link href="/notes">
+          <Link to="/notes">
             <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back to Notes
           </Link>
         </Button>
@@ -74,7 +68,7 @@ export default function EditNotePage() {
   return (
     <div className="max-w-2xl mx-auto">
       <Button asChild variant="outline" className="mb-6 text-primary border-primary hover:bg-primary/10">
-        <Link href={`/notes/${id}`}>
+        <Link to={`/notes/${id}`}>
           <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Back to Note Details
         </Link>
       </Button>

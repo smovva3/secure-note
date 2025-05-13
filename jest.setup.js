@@ -1,59 +1,29 @@
-
 import '@testing-library/jest-dom';
-
-// Mock next/image
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: (props) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    const { src, alt, width, height, ...rest } = props;
-    return <img src={src} alt={alt} width={width} height={height} {...rest} />;
-  },
-}));
-
-// Mock next/link
-jest.mock('next/link', () => {
-  return ({children, href, ...rest}) => {
-    return <a href={href} {...rest}>{children}</a>;
-  };
-});
-
-// Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-  }),
-  usePathname: () => '/', // Default pathname, can be overridden in tests
-  useParams: () => ({}), // Default params, can be overridden
-  useSearchParams: () => ({ get: jest.fn() }),
-}));
 
 // Mock global fetch
 global.fetch = jest.fn(() =>
   Promise.resolve({
     ok: true,
-    json: () => Promise.resolve({ success: true, url: '/uploads/mock-file.txt', filename: 'mock-file.txt', filetype: 'text/plain' }),
+    json: () => Promise.resolve({ success: true }), // Simplified mock response
   })
 );
 
 // Mock localStorage for hooks like useLocalStorage
 const localStorageMock = (() => {
-  let store = {};
+  let store: { [key: string]: string } = {};
   return {
-    getItem: (key) => store[key] || null,
-    setItem: (key, value) => {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => {
       store[key] = value.toString();
     },
-    removeItem: (key) => {
+    removeItem: (key: string) => {
       delete store[key];
     },
     clear: () => {
       store = {};
     },
+    length: Object.keys(store).length,
+    key: (index: number) => Object.keys(store)[index] || null,
   };
 })();
 Object.defineProperty(window, 'localStorage', {
@@ -75,11 +45,22 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock URL.createObjectURL and URL.revokeObjectURL (used for download links)
-global.URL.createObjectURL = jest.fn(() => 'mock-object-url');
-global.URL.revokeObjectURL = jest.fn();
+// Mock URL.createObjectURL and URL.revokeObjectURL (used for download links if any attachment logic remained)
+// global.URL.createObjectURL = jest.fn(() => 'mock-object-url');
+// global.URL.revokeObjectURL = jest.fn();
 
-// Suppress console.warn for specific expected warnings if necessary, e.g., from Zustand in tests
+// If using react-router-dom, you might need to mock parts of it or use MemoryRouter in tests.
+// For basic component rendering, this might not be immediately necessary in jest.setup.js
+// but test files will need to wrap routed components.
+// jest.mock('react-router-dom', () => ({
+//   ...jest.requireActual('react-router-dom'), // import and retain default behavior
+//   useNavigate: () => jest.fn(),
+//   useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'testKey' }),
+//   useParams: () => ({}),
+//   Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
+// }));
+
+// Suppress console.warn for specific expected warnings if necessary
 // const originalWarn = console.warn;
 // beforeAll(() => {
 //   console.warn = (...args) => {

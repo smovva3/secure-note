@@ -1,24 +1,23 @@
-"use client";
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomePage() {
-  const { user, loading } = useAuth(); // useAuth will handle redirection via its useEffect
-  const router = useRouter();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
 
   useEffect(() => {
     if (!loading) {
       setIsInitialCheckDone(true);
       if (user) {
-        router.replace('/notes');
+        navigate('/notes', { replace: true });
       } else {
-        router.replace('/login');
+        navigate('/login', { replace: true });
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, navigate]);
 
   if (!isInitialCheckDone) {
     return (
@@ -29,7 +28,6 @@ export default function HomePage() {
     );
   }
   
-  // This content will ideally not be shown as redirection should occur.
   return (
     <div className="flex h-screen items-center justify-center bg-background p-4">
       <p className="text-foreground">SecureNote</p>

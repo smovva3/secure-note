@@ -1,7 +1,7 @@
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { Note } from "@/lib/types";
+import type { Note } from "@/lib/types"; // Note type will be simplified
 import { formatDistanceToNow } from 'date-fns';
 import { FileText, Clock, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import {
@@ -21,7 +21,6 @@ import { useState } from "react";
 
 interface NoteCardProps {
   note: Note;
-  // onDelete prop is removed as NoteCard will handle its own deletion logic
 }
 
 export default function NoteCard({ note }: NoteCardProps) {
@@ -38,7 +37,6 @@ export default function NoteCard({ note }: NoteCardProps) {
         title: "Note Deleted",
         description: `Note "${note.title}" has been successfully deleted.`,
       });
-      // No router.push needed here as the component will be unmounted from the list
     } else {
       toast({
         title: "Error",
@@ -64,13 +62,11 @@ export default function NoteCard({ note }: NoteCardProps) {
         <p className="text-sm text-foreground/80 line-clamp-3">
           {note.content}
         </p>
-        {note.attachment && (
-           <p className="text-xs text-muted-foreground mt-2">Attachment: {note.attachment.name}</p>
-        )}
+        {/* Attachment info removed */}
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-4 border-t">
         <Button asChild variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10">
-          <Link href={`/notes/${note.id}`}>
+          <Link to={`/notes/${note.id}`}>
             <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" /> View Details
           </Link>
         </Button>

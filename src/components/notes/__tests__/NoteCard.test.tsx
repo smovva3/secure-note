@@ -1,24 +1,40 @@
-
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NoteCard from '../NoteCard';
 import type { Note } from '@/lib/types';
 import { useNotes } from '@/hooks/useNotes';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { MemoryRouter } from 'react-router-dom'; // Import MemoryRouter
+import { AuthProvider } from '@/hooks/useAuth'; // Import AuthProvider
 
 // Mock dependencies
 jest.mock('@/hooks/useNotes');
 jest.mock('@/hooks/use-toast');
 jest.mock('date-fns', () => ({
-  ...jest.requireActual('date-fns'), // import and retain default behavior
+  ...jest.requireActual('date-fns'),
   formatDistanceToNow: jest.fn(),
 }));
+// Mock useAuth as it's used by useNotes and potentially other components
+jest.mock('@/hooks/useAuth', () => {
+  const originalModule = jest.requireActual('@/hooks/useAuth');
+  return {
+    __esModule: true,
+    ...originalModule,
+    useAuth: jest.fn(() => ({ // Provide a default mock implementation for useAuth
+      user: { username: 'testuser' }, // Mock user for useNotes
+      login: jest.fn(),
+      logout: jest.fn(),
+      loading: false,
+    })),
+  };
+});
 
 
 const mockUseNotes = useNotes as jest.Mock;
 const mockUseToast = useToast as jest.Mock;
 const mockFormatDistanceToNow = formatDistanceToNow as jest.Mock;
+
 
 describe('NoteCard', () => {
   const mockDeleteNote = jest.fn();
@@ -33,39 +49,38 @@ describe('NoteCard', () => {
   };
 
   beforeEach(() => {
-    mockUseNotes.mockReturnValue({ deleteNote: mockDeleteNote });
+    mockUseNotes.mockReturnValue({ deleteNote: mockDeleteNote, getNoteById: jest.fn(), notes: [], addNote: jest.fn(), updateNote: jest.fn(), isLoading:false });
     mockUseToast.mockReturnValue({ toast: mockToast });
-    mockFormatDistanceToNow.mockReturnValue('about 1 hour ago'); // Default mock return value
+    mockFormatDistanceToNow.mockReturnValue('about 1 hour ago');
     mockDeleteNote.mockClear();
     mockToast.mockClear();
   });
 
+  // Helper function to render with providers
+  const renderWithProviders = (ui: React.ReactElement) => {
+    return render(
+      <MemoryRouter>
+        <AuthProvider> {/* useNotes internally uses useAuth, so provider is good */}
+          {ui}
+        </AuthProvider>
+      </MemoryRouter>
+    );
+  };
+
   it('renders note details correctly', () => {
-    render(<NoteCard note={baseNote} />);
+    renderWithProviders(<NoteCard note={baseNote} />);
 
     expect(screen.getByText(baseNote.title)).toBeInTheDocument();
     expect(screen.getByText(baseNote.content)).toBeInTheDocument();
-    expect(screen.getByText('about 1 hour ago')).toBeInTheDocument(); // From mocked formatDistanceToNow
+    expect(screen.getByText('about 1 hour ago')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View Details/i })).toHaveAttribute('href', `/notes/${baseNote.id}`);
   });
 
-  it('renders attachment name if attachment exists', () => {
-    const noteWithAttachment: Note = {
-      ...baseNote,
-      attachment: { name: 'document.pdf', type: 'application/pdf' },
-    };
-    render(<NoteCard note={noteWithAttachment} />);
-    expect(screen.getByText(`Attachment: ${noteWithAttachment.attachment!.name}`)).toBeInTheDocument();
-  });
-
-  it('does not render attachment info if no attachment', () => {
-    render(<NoteCard note={baseNote} />);
-    expect(screen.queryByText(/Attachment:/i)).not.toBeInTheDocument();
-  });
+  // Attachment tests removed as functionality is removed
 
   it('opens delete confirmation dialog on delete button click', async () => {
     const user = userEvent.setup();
-    render(<NoteCard note={baseNote} />);
+    renderWithProviders(<NoteCard note={baseNote} />);
     
     const deleteButton = screen.getByRole('button', { name: /Delete/i });
     await user.click(deleteButton);
@@ -77,8 +92,8 @@ describe('NoteCard', () => {
 
   it('calls deleteNote and shows success toast on confirm delete', async () => {
     const user = userEvent.setup();
-    mockDeleteNote.mockReturnValue(true); // Simulate successful deletion
-    render(<NoteCard note={baseNote} />);
+    mockDeleteNote.mockReturnValue(true);
+    renderWithProviders(<NoteCard note={baseNote} />);
     
     const deleteButton = screen.getByRole('button', { name: /Delete/i });
     await user.click(deleteButton);
@@ -91,13 +106,13 @@ describe('NoteCard', () => {
       title: "Note Deleted",
       description: `Note "${baseNote.title}" has been successfully deleted.`,
     });
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(); // Dialog should close
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('shows error toast if deleteNote fails', async () => {
     const user = userEvent.setup();
-    mockDeleteNote.mockReturnValue(false); // Simulate failed deletion
-    render(<NoteCard note={baseNote} />);
+    mockDeleteNote.mockReturnValue(false);
+    renderWithProviders(<NoteCard note={baseNote} />);
 
     const deleteButton = screen.getByRole('button', { name: /Delete/i });
     await user.click(deleteButton);
@@ -111,15 +126,12 @@ describe('NoteCard', () => {
       description: "Failed to delete the note.",
       variant: "destructive",
     });
-    // Button should re-enable if deletion fails and dialog is still open (or re-opens on error, depends on UX)
-    // For this component, it simply stays enabled, and the dialog might still be open or closed.
-    // Check that the delete button on the card is not in deleting state.
     expect(screen.getByRole('button', { name: /Delete/i })).not.toBeDisabled();
   });
 
   it('closes dialog on cancel click', async () => {
     const user = userEvent.setup();
-    render(<NoteCard note={baseNote} />);
+    renderWithProviders(<NoteCard note={baseNote} />);
     
     const deleteButton = screen.getByRole('button', { name: /Delete/i });
     await user.click(deleteButton);
@@ -133,22 +145,18 @@ describe('NoteCard', () => {
 
   it('shows deleting state on delete button when deleting', async () => {
     const user = userEvent.setup();
-    // Make deleteNote return a promise that never resolves to keep it in deleting state
     mockDeleteNote.mockReturnValue(new Promise(() => {})); 
-    render(<NoteCard note={baseNote} />);
+    renderWithProviders(<NoteCard note={baseNote} />);
 
     const deleteButtonOnCard = screen.getByRole('button', { name: /Delete/i });
-    await user.click(deleteButtonOnCard); // Open dialog
+    await user.click(deleteButtonOnCard);
 
     const confirmButtonInDialog = screen.getByRole('button', { name: /Continue/i });
-    // Don't await this click fully because the promise never resolves
     user.click(confirmButtonInDialog);
 
-    // Check button on card after initiating delete
     expect(await screen.findByRole('button', {name: /Deleting.../i})).toBeInTheDocument();
-    expect(screen.getByRole('button', {name: /Deleting.../i})).toBeDisabled(); // The card's delete button becomes "Deleting..."
+    expect(screen.getByRole('button', {name: /Deleting.../i})).toBeDisabled();
     
-    // Also check the continue button in the dialog
     const continueButtonInDialogAfterClick = await screen.findByRole('button', { name: /Continue/i });
     expect(continueButtonInDialogAfterClick).toBeDisabled();
   });

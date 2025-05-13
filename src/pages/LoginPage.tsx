@@ -1,20 +1,19 @@
-"use client";
 import LoginForm from "@/components/auth/LoginForm";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
 export default function LoginPage() {
-  const { user } = useAuth();
-  const router = useRouter();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      router.replace('/notes');
+    if (!loading && user) {
+      navigate('/notes', { replace: true });
     }
-  }, [user, router]);
+  }, [user, loading, navigate]);
 
-  if (user) { // Prevents rendering LoginForm if user is already defined (avoids flash)
+  if (loading || user) { // Prevents rendering LoginForm if loading or user is already defined
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <p className="text-foreground">Redirecting...</p>

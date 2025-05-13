@@ -1,52 +1,74 @@
-"use client";
-import { useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useCallback, createContext, useContext, useState, ReactNode } from 'react';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import useLocalStorage from './useLocalStorage';
 import type { User } from '@/lib/types';
 
-export function useAuth() {
+interface AuthContextType {
+  user: User | null;
+  login: (username: string) => void;
+  logout: () => void;
+  loading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useLocalStorage<User | null>('securenote-user', null);
-  const router = useRouter();
-  const pathname = usePathname();
+  const [loading, setLoading] = useState(true); // For initial load from local storage
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // This effect ensures that `user` is read from localStorage before `loading` is set to false.
+    // `useLocalStorage` itself initializes `user` and then updates it.
+    // We set loading to false once `user` has its value from localStorage (or initialValue if not found).
+    // The `user === undefined` check in useLocalStorage's initial state is now managed here explicitly.
+    const storedUser = localStorage.getItem('securenote-user');
+    if (storedUser) {
+        setUser(JSON.parse(storedUser));
+    } else {
+        setUser(null);
+    }
+    setLoading(false);
+  }, [setUser]);
+
 
   const login = useCallback((username: string) => {
     setUser({ username });
-    router.push('/notes');
-  }, [setUser, router]);
+    navigate('/notes', { replace: true });
+  }, [setUser, navigate]);
 
   const logout = useCallback(() => {
     setUser(null);
-    // Consider how to handle notes for the logged-out user.
-    // For this version, notes are filtered by userId in useNotes.
-    router.push('/login');
-  }, [setUser, router]);
+    navigate('/login', { replace: true });
+  }, [setUser, navigate]);
 
-  const checkAuthProtection = useCallback(() => {
-    const isAuthPage = pathname === '/login';
-    if (!user && !isAuthPage) {
-      router.replace('/login');
-    } else if (user && isAuthPage) {
-      router.replace('/notes');
-    }
-  }, [user, router, pathname]);
-  
+  // This effect handles route protection after user state is resolved
   useEffect(() => {
-    // The checkAuthProtection depends on `user` which comes from useLocalStorage.
-    // useLocalStorage initializes with `initialValue` and then updates in an effect.
-    // We need to ensure `user` has its definite value from localStorage before redirecting.
-    // The `user === undefined` check in the return helps, but for redirection,
-    // it's crucial that `user` is resolved.
-    // If `user` is `null` (explicitly set, meaning no user or logged out) or an object (user logged in),
-    // then `checkAuthProtection` can run.
-    // If `user` is `undefined` (initial state of useLocalStorage before effect runs),
-    // we should wait. The `loading` prop handles this for UI, but for redirects:
-    if (user !== undefined) { // Only run protection if user state is resolved from localStorage
-      checkAuthProtection();
-    }
-  }, [user, pathname, checkAuthProtection, router]); // Added router to dependencies as it's used in checkAuthProtection
+    if (!loading) { // Only run protection if initial user load is complete
+      const isAuthPage = location.pathname === '/login';
+      const isHomePage = location.pathname === '/';
 
-  // `user === undefined` means useLocalStorage hasn't yet run its effect to load the value.
-  // `user === null` means localStorage has been read and no user is stored, or user logged out.
-  // `user === User Object` means user is logged in.
-  return { user, login, logout, loading: user === undefined }; 
+      if (user && (isAuthPage || isHomePage)) {
+        navigate('/notes', { replace: true });
+      } else if (!user && !isAuthPage && !isHomePage) {
+        navigate('/login', { replace: true });
+      }
+    }
+  }, [user, loading, location.pathname, navigate]);
+
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }

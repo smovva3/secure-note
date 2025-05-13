@@ -1,14 +1,24 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 export default {
     darkMode: ["class"],
     content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./public/index.html", // Scan the root HTML file
+    "./src/**/*.{js,ts,jsx,tsx,mdx}", // Scan all relevant files in src
+    // Adjust specific paths if needed, e.g.:
+    // "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    // "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    // "./src/layouts/**/*.{js,ts,jsx,tsx,mdx}",
+    // "./src/App.tsx",
+    // "./src/index.tsx"
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        sans: ['"Geist Sans"', ...defaultTheme.fontFamily.sans], // Assuming Geist Sans is globally available
+        mono: ['"Geist Mono"', ...defaultTheme.fontFamily.mono],   // Assuming Geist Mono is globally available
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

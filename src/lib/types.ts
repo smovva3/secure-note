@@ -2,17 +2,19 @@ export interface User {
   username: string;
 }
 
-export interface NoteFile {
-  name: string;
-  type: string; // MIME type
-  url?: string; // For image preview using URL.createObjectURL OR server path
-  content?: string; // For text file preview
-}
+// NoteFile interface removed as attachments are removed for simplicity.
+// export interface NoteFile {
+//   name: string;
+//   type: string; // MIME type
+//   url?: string; 
+//   content?: string; 
+// }
+
 export interface Note {
   id: string;
   title: string;
   content: string;
   timestamp: string; // ISO string
-  attachment?: NoteFile;
+  // attachment?: NoteFile; // Attachment field removed
   userId: string; // To associate notes with a user
 }

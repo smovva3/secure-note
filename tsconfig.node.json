@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true, // Ensure strict checking for config files too
+    "noEmit": true, // Usually, config files are not emitted but type-checked
+  },
+  "include": ["vite.config.ts", "jest.config.js"] // Include config files
+}

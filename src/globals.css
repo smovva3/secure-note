@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  It's generally better to load fonts using @font-face in your CSS 
+  or link them in your public/index.html for non-Next.js projects.
+  The `next/font` optimization won't be available.
+  For this example, we assume Geist Sans and Mono are either linked in index.html
+  or you'd set them up with @font-face here.
+  We'll use a generic sans-serif stack as a fallback in tailwind.config.js if not explicitly set.
+*/
+
+body {
+  /* font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; */
+  /* If using Tailwind's font utility, this might be set on a higher level or via `font-sans` class */
+  margin: 0; /* Ensure no default margin */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+@layer base {
+  :root {
+    --background: 0 0% 96%; /* Light Gray #F5F5F5 */
+    --foreground: 210 10% 23%; /* Darker Gray for text */
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 10% 23%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 10% 23%;
+
+    --primary: 180 100% 25%; /* Teal #008080 */
+    --primary-foreground: 0 0% 98%; /* White */
+
+    --secondary: 210 10% 90%; /* A slightly darker gray for secondary elements */
+    --secondary-foreground: 180 100% 25%; /* Teal for text on secondary */
+
+    --muted: 210 10% 90%;
+    --muted-foreground: 210 10% 45%;
+
+    --accent: 190 67% 93%; /* Light Blue #E0F7FA */
+    --accent-foreground: 180 80% 20%; /* Darker Teal/Blue for text on accent */
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 180 100% 25%; /* Teal */
+    
+    --radius: 0.5rem;
+
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Define font variables if you're not using Tailwind's font family utilities directly */
+    /* Example: --font-sans: 'Geist Sans', system-ui, sans-serif; */
+    /*          --font-mono: 'Geist Mono', monospace; */
+  }
+
+  .dark {
+    --background: 210 10% 10%;
+    --foreground: 0 0% 96%;
+
+    --card: 210 10% 15%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 210 10% 10%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 180 100% 35%; /* Brighter Teal for dark mode */
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 210 10% 20%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 210 10% 20%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 190 60% 25%; /* Darker Light Blue for dark mode */
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 210 10% 25%;
+    --input: 210 10% 25%;
+    --ring: 180 100% 35%; /* Teal for focus rings */
+
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Apply sans-serif font globally via Tailwind's theme if configured, or directly here */
+    /* font-family: theme('fontFamily.sans'); */
+  }
+}
