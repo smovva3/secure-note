@@ -27,35 +27,45 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
       setStoredValue(readValue());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isClient, key]); // Added key to dependencies
+  }, [isClient, key]);
 
 
   const setValue: Dispatch<SetStateAction<T>> = (value) => {
-    if (!isClient) {
-      console.warn(
-        `Tried setting localStorage key “${key}” even though environment is not a client. State will be updated in memory but not persisted.`
-      );
-      // Update local component state even if not client, to avoid UI discrepancies
-      try {
-        const newValue = value instanceof Function ? value(storedValue) : value;
-        setStoredValue(newValue);
-      } catch (e) {
-         console.error("Error computing new state value for localStorage (SSR context):", e);
+    if (!isClient && typeof window !== 'undefined') { // Added typeof window check for safety, though isClient should cover
+        // Still update local component state if not client or localStorage fails, to avoid UI discrepancies if possible
+        try {
+          const newValue = value instanceof Function ? value(storedValue) : value;
+          setStoredValue(newValue);
+        } catch (e) {
+           console.error("Error computing new state value for localStorage (SSR context or LS failure):", e);
+        }
+        if(!isClient) {
+            console.warn(
+                `Tried setting localStorage key “${key}” even though environment is not a client. State will be updated in memory but not persisted.`
+              );
+        }
+        return;
       }
-      return;
-    }
+
+    let newValueToSet;
     try {
-      const newValue = value instanceof Function ? value(storedValue) : value;
-      window.localStorage.setItem(key, JSON.stringify(newValue));
-      setStoredValue(newValue);
+      newValueToSet = value instanceof Function ? value(storedValue) : value;
     } catch (error) {
-      console.warn(`Error setting localStorage key “${key}”:`, error);
-      throw new Error(`Failed to save to local storage for key "${key}". This could be due to storage limits or other browser restrictions.`);
+        console.error(`Error computing new value for localStorage key “${key}”:`, error);
+        // Do not proceed if the value computation itself fails
+        return;
     }
+    
+    try {
+      window.localStorage.setItem(key, JSON.stringify(newValueToSet));
+    } catch (error) {
+      console.warn(`Error setting localStorage key “${key}”:`, error, ". The value will be set in memory only for this session if possible.");
+      // Do not re-throw. The value will still be updated in the component's state.
+    }
+    setStoredValue(newValueToSet);
   };
 
   return [storedValue, setValue];
 }
 
 export default useLocalStorage;
-

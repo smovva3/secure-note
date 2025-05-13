@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useCallback, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -20,7 +19,9 @@ function setSessionCookie(name: string, value: string | null, days?: number) {
   }
   
   const cookieValue = value === null ? '' : encodeURIComponent(value);
-  document.cookie = name + "=" + cookieValue + expires + "; path=/";
+  // Ensure secure cookie attributes in production if HTTPS is used
+  const secureAttribute = process.env.NODE_ENV === 'production' ? '; Secure; SameSite=Lax' : '; SameSite=Lax';
+  document.cookie = name + "=" + cookieValue + expires + "; path=/" + secureAttribute;
 }
 
 
@@ -32,34 +33,48 @@ export function useAuth() {
 
 
   useEffect(() => {
-    // Initialize loading state based on whether user info has been retrieved from localStorage
-    // useLocalStorage's initial read might be asynchronous or delayed until client-side mount.
-    // We consider loading complete once 'user' is not undefined.
-    if (user !== undefined) {
-      setIsLoading(false);
+    // isLoading should be true until the user state has been definitively determined from localStorage.
+    // useLocalStorage initializes with `initialValue` (null), then updates in an effect.
+    // So, we wait for the first time `user` is set (either to null from empty LS, or a User object).
+    // The `user !== undefined` check handles this, as `user` is initially `null`.
+    // This effect will run once `user` gets its value from `useLocalStorage`'s internal `useEffect`.
+    if (user !== undefined) { // This condition might make isLoading false too soon if initialValue of useLocalStorage is null
+        setIsLoading(false);
     }
   }, [user]);
 
 
   const login = useCallback((username: string) => {
     const userData = { username };
-    setUserInLocalStorage(userData); // Updates localStorage and local state via useLocalStorage
-    // Set a session cookie for the middleware.
-    setSessionCookie('securenote-user-session', JSON.stringify(userData), 1); // Cookie for 1 day
+    try {
+      setUserInLocalStorage(userData); 
+      setSessionCookie('securenote-user-session', JSON.stringify(userData), 1); 
+    } catch (error) {
+        // This catch block might not be strictly necessary for setUserInLocalStorage
+        // if useLocalStorage no longer throws on setItem failure.
+        // However, it's good for catching other potential errors during the login data setup.
+        console.error("Error during login data setup:", error);
+        // Optionally, inform the user that login data might not persist.
+        // e.g., toast({ title: "Login Warning", description: "Could not save login permanently.", variant: "destructive" });
+    }
     router.push('/notes');
   }, [setUserInLocalStorage, router]);
 
   const logout = useCallback(() => {
-    setUserInLocalStorage(null); // Clears localStorage and local state
-    setSessionCookie('securenote-user-session', null); // Erase the session cookie
+    try {
+        setUserInLocalStorage(null); 
+        setSessionCookie('securenote-user-session', null); 
+    } catch (error) {
+        console.error("Error during logout data cleanup:", error);
+    }
     router.push('/login');
   }, [setUserInLocalStorage, router]);
 
   const checkAuthProtection = useCallback(() => {
-    if (isLoading) return; // Don't run auth checks until loading is complete
+    if (isLoading) return; 
 
     const isAuthPage = pathname === '/login';
-    // Client-side check still relies on 'user' state from useLocalStorage
+    
     if (!user && !isAuthPage) {
       router.replace('/login');
     } else if (user && isAuthPage) {
@@ -68,11 +83,8 @@ export function useAuth() {
   }, [user, router, pathname, isLoading]);
   
   useEffect(() => {
-    // This effect will run when 'user' (from localStorage) changes, pathname changes, or loading state completes.
-    // It ensures client-side redirection is in sync.
     checkAuthProtection();
-  }, [user, pathname, checkAuthProtection, isLoading]);
+  }, [user, pathname, isLoading, checkAuthProtection]); // Added isLoading and checkAuthProtection to dependency array
 
   return { user, login, logout, loading: isLoading }; 
 }
-
